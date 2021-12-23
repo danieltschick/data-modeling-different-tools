@@ -1,0 +1,71 @@
+//FACTS and LINK
+Vendas:
+LOAD [Id Loja] &'|'& Num(Data) as %Key, 
+     Valor
+FROM
+[C:\Dados\Vendas e Metas - Lojas.xlsx]
+(ooxml, embedded labels);
+
+Metas:
+LOAD [Id Loja] &'|'& Num(Mês) as %Key, 
+     Meta
+FROM
+[C:\Dados\Vendas e Metas - Lojas.xlsx]
+(ooxml, embedded labels, table is Metas);
+
+Link:
+LOAD DISTINCT
+	[Id Loja] &'|'& Num(Data) as %Key, 
+	[Id Loja] &'|'& Num(Data) as TempKey,
+	[Id Loja],
+	Num(Data) as Data
+FROM
+[C:\Dados\Vendas e Metas - Lojas.xlsx]
+(ooxml, embedded labels);
+
+Concatenate(Link)
+LOAD DISTINCT
+	[Id Loja] &'|'& Num(Mês) as %Key,
+	[Id Loja],
+	Num(Mês) as Data
+FROM
+[C:\Dados\Vendas e Metas - Lojas.xlsx]
+(ooxml, embedded labels, table is Metas)
+WHERE Not Exists(TempKey, [Id Loja] &'|'& Num(Mês));
+
+DROP Field TempKey;
+
+Lojas:
+LOAD [Id Loja], 
+     [Desc Loja]
+FROM
+[C:\Dados\Vendas e Metas - Lojas.xlsx]
+(ooxml, embedded labels, table is Loja);
+
+//DIMENSIONS
+Min_Max:
+Load
+  Num(Min(Data)) as MinDate,
+  Num(Max(Data)) as MaxDate
+Resident Link;
+
+Let vMinDate = Peek('MinDate',0,'Min_Max');
+Let vMaxDate = Peek('MaxDate',0,'Min_Max');
+DROP Table Min_Max;
+
+Calendar:
+LOAD *,
+  MonthName(Data)         	as MonthName,
+  QuarterName(Data)       	as QuarterName,
+  YearName(Data)          	as YearName,
+  'Q'&Ceil(Month(Data)/3) 	as Quarter,
+  Year(Data) 				as Year,
+  Month(Data)            	as Month,
+  WeekDay(Data)           	as WeekDay;
+LOAD
+	Date($(vMinDate) + IterNo() - 1)    as Data
+	AutoGenerate 1
+While $(vMinDate) + IterNo() - 1 <= $(vMaxDate);
+
+
+EXIT SCRIPT;
